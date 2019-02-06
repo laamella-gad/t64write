@@ -24,7 +24,9 @@ The Commodore 64 filename is `bla.prg` until the first `.`: `bla`.
 
 # where?
 
-[Linux download](https://github.com/laamella-gad/t64write/releases/download/v1.0.0/t64write.gz)
+* [Linux download](https://github.com/laamella-gad/t64write/releases/download/v1.0.0/t64write.gz)
+* Windows download (Does not exist yet. Can someone compile this on Windows please?)
+
 
 # words.
 
