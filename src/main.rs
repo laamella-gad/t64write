@@ -46,15 +46,6 @@ fn make_c64_file_name(prg_name: &str) -> String {
     String::from(x[0])
 }
 
-//struct TapeRecord {
-//    dos_tape_description: [u8; 32],
-//    tape_version: u16,
-//    number_of_directory_entries: u16,
-//    number_of_used_entries: u16,
-//    unused: u16,
-//    user_description: [u8; 24],
-//}
-//
 fn write_tape_record(file: &mut File) {
     // T64 ID
     file.write_all(format!("{:\0<32}", "C64S tape file").as_bytes()).unwrap();
@@ -70,28 +61,18 @@ fn write_tape_record(file: &mut File) {
     file.write_all("DEMOTAPEDEMOTAPEDEMOTAPE".as_bytes()).unwrap();
 }
 
-//struct FileRecord {
-//    entry_type: u8,
-//    c64_file_type: u8,
-//    start_address: u16,
-//    end_address: u16,
-//    unused: u16,
-//    offset_of_file_contents_start_within_t64_file: u32,
-//    unused2: u32,
-//    c64_file_name: [u8; 16],
-//}
-//
-//enum EntryType {
-//    FreeEntry = 0,
-//    NormalTapeFile = 1,
-//    TapeFileWithHeader = 2,
-//    MemorySnapshot = 3,
-//    TapeBlock = 4,
-//    DigitizedStream = 5,
-//}
+enum EntryType {
+    _FreeEntry = 0,
+    NormalTapeFile = 1,
+    _TapeFileWithHeader = 2,
+    _MemorySnapshot = 3,
+    _TapeBlock = 4,
+    _DigitizedStream = 5,
+}
+
 fn write_file_record(file: &mut File, start_address: u16, prg_size: usize, c64_file_name: String) {
     // Entry type
-    file.write_u8(1).unwrap();
+    file.write_u8(EntryType::NormalTapeFile as u8).unwrap();
     // C64 file type
     file.write_u8(0x82).unwrap();
     //  Start address
