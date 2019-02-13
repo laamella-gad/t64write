@@ -1,53 +1,62 @@
-extern crate clap;
-
-use clap::{Arg, App};
-
 use std::fs::File;
 use std::io::prelude::*;
 use byteorder::*;
-use std::io::Error;
+use std::io;
+use std::result;
+use std::env;
+use std::error::Error;
+use std::process;
 
-fn main() -> std::io::Result<()> {
-    let matches = App::new("t64write")
-        .version("1.0.0")
-        .author("Danny van Bruggen <hexagonaal@gmail.com>")
-        .about("Commodore 64 tape image creator")
-        .arg(Arg::with_name("tapefile")
-            .required(true)
-            .takes_value(true)
-            .index(1)
-            .help("name of the t64 file to create"))
-        .arg(Arg::with_name("prg-file")
-            .required(true)
-            .takes_value(true)
-            .index(2)
-            .help("name of the prg file to put on the tape"))
-        .get_matches();
+struct Config {
+    tape_name: String,
+    prg_name: String,
+}
 
-    let tape_name = matches.value_of("tapefile").expect("");
-    println!("tape file {}", tape_name);
-    let prg_name = matches.value_of("prg-file").expect("");
-    println!("prg file {}", prg_name);
+impl Config {
+    fn new() -> Result<Config, &'static str> {
+        let args: Vec<String> = env::args().collect();
 
-    //
-    let mut file = File::create(tape_name)?;
+        if args.len() < 3 {
+            return result::Result::Err("not enough arguments");
+        }
+
+        let tape_name = args[1].clone();
+        let prg_name = args[2].clone();
+
+        Ok(Config { tape_name, prg_name })
+    }
+}
+
+struct Prg {
+    data: Vec<u8>,
+    start_address: u16,
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let config = Config::new().unwrap_or_else(|err| {
+        eprintln!("{}", err);
+        eprintln!("Usage: t64write TAPEFILE PRGFILE");
+        process::exit(1);
+    });
+
+    let prg = read_prg(&config.prg_name)?;
+
+    let mut file = File::create(config.tape_name)?;
     write_tape_record(&mut file)?;
-    let (prg, start_address) = read_prg(prg_name)?;
-
-    write_file_record(&mut file, start_address, prg.len(), make_c64_file_name(prg_name))?;
-    write_prg(&mut file, prg)?;
+    write_file_record(&mut file, prg.start_address, prg.data.len(), &make_c64_file_name(&config.prg_name))?;
+    write_prg(&mut file, prg.data)?;
 
     Ok(())
 }
 
-fn make_c64_file_name(prg_name: &str) -> String {
+fn make_c64_file_name(prg_name: &String) -> String {
     let y = prg_name.to_ascii_uppercase();
     let x: Vec<&str> = y.split('.').collect();
 
     String::from(x[0])
 }
 
-fn write_tape_record(file: &mut File) -> Result<(), Error> {
+fn write_tape_record(file: &mut File) -> Result<(), io::Error> {
     // T64 ID
     file.write_all(format!("{:\0<32}", "C64S tape file").as_bytes())?;
     // Tape version
@@ -73,7 +82,7 @@ enum EntryType {
     _DigitizedStream = 5,
 }
 
-fn write_file_record(file: &mut File, start_address: u16, prg_size: usize, c64_file_name: String) -> Result<(), Error> {
+fn write_file_record(file: &mut File, start_address: u16, prg_size: usize, c64_file_name: &String) -> Result<(), io::Error> {
     // Entry type
     file.write_u8(EntryType::NormalTapeFile as u8)?;
     // C64 file type
@@ -94,19 +103,19 @@ fn write_file_record(file: &mut File, start_address: u16, prg_size: usize, c64_f
     Ok(())
 }
 
-fn read_prg(prg_name: &str) -> Result<(Vec<u8>, u16), Error> {
+fn read_prg(prg_name: &String) -> Result<Prg, io::Error> {
     let mut buffer = [0; 0x10000];
 
     let mut prg_file = File::open(prg_name)?;
-    let start = prg_file.read_u16::<LittleEndian>()?;
+    let start_address = prg_file.read_u16::<LittleEndian>()?;
     let len_read = prg_file.read(&mut buffer)?;
 
-    let prg = buffer[..len_read].to_vec();
+    let data = buffer[..len_read].to_vec();
 
-    Ok((prg, start))
+    Ok(Prg { data, start_address })
 }
 
-fn write_prg(file: &mut File, prg: Vec<u8>) -> Result<(), Error> {
+fn write_prg(file: &mut File, prg: Vec<u8>) -> Result<(), io::Error> {
     file.write_all(&prg)?;
 
     Ok(())
