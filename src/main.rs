@@ -24,9 +24,9 @@ fn main() -> std::io::Result<()> {
             .help("name of the prg file to put on the tape"))
         .get_matches();
 
-    let tape_name = matches.value_of("tapefile").unwrap();
+    let tape_name = matches.value_of("tapefile").expect("");
     println!("tape file {}", tape_name);
-    let prg_name = matches.value_of("prg-file").unwrap();
+    let prg_name = matches.value_of("prg-file").expect("");
     println!("prg file {}", prg_name);
 
     //
