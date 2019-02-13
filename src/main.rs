@@ -28,6 +28,7 @@ impl Config {
 }
 
 struct Prg {
+    c64_file_name: String,
     data: Vec<u8>,
     start_address: u16,
 }
@@ -43,8 +44,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut file = File::create(config.tape_name)?;
     write_tape_record(&mut file)?;
-    write_file_record(&mut file, prg.start_address, prg.data.len(), &make_c64_file_name(&config.prg_name))?;
-    write_prg(&mut file, prg.data)?;
+    write_file_record(&mut file, &prg)?;
+    write_prg(&mut file, &prg)?;
 
     Ok(())
 }
@@ -82,15 +83,15 @@ enum EntryType {
     _DigitizedStream = 5,
 }
 
-fn write_file_record(file: &mut File, start_address: u16, prg_size: usize, c64_file_name: &String) -> Result<(), io::Error> {
+fn write_file_record(file: &mut File, prg: &Prg) -> Result<(), io::Error> {
     // Entry type
     file.write_u8(EntryType::NormalTapeFile as u8)?;
     // C64 file type
     file.write_u8(0x82)?;
     //  Start address
-    file.write_u16::<LittleEndian>(start_address)?;
+    file.write_u16::<LittleEndian>(prg.start_address)?;
     // End address
-    file.write_u16::<LittleEndian>(start_address + prg_size as u16)?;
+    file.write_u16::<LittleEndian>(prg.start_address + prg.data.len() as u16)?;
     // Unused
     file.write_u16::<LittleEndian>(0xcafe)?;
     // Offset of file contents start withing file
@@ -98,25 +99,27 @@ fn write_file_record(file: &mut File, start_address: u16, prg_size: usize, c64_f
     // Unused
     file.write_u32::<LittleEndian>(0xcafecafe)?;
     //  C64 filename
-    file.write_all(format!("{: <24}", c64_file_name).as_bytes())?;
+    file.write_all(format!("{: <24}", prg.c64_file_name).as_bytes())?;
 
     Ok(())
 }
 
-fn read_prg(prg_name: &String) -> Result<Prg, io::Error> {
+fn read_prg(prg_file_name: &String) -> Result<Prg, io::Error> {
     let mut buffer = [0; 0x10000];
 
-    let mut prg_file = File::open(prg_name)?;
+    let mut prg_file = File::open(prg_file_name)?;
     let start_address = prg_file.read_u16::<LittleEndian>()?;
     let len_read = prg_file.read(&mut buffer)?;
 
     let data = buffer[..len_read].to_vec();
 
-    Ok(Prg { data, start_address })
+    let c64_file_name = make_c64_file_name(prg_file_name);
+
+    Ok(Prg { c64_file_name, data, start_address })
 }
 
-fn write_prg(file: &mut File, prg: Vec<u8>) -> Result<(), io::Error> {
-    file.write_all(&prg)?;
+fn write_prg(file: &mut File, prg: &Prg) -> Result<(), io::Error> {
+    file.write_all(&prg.data)?;
 
     Ok(())
 }
